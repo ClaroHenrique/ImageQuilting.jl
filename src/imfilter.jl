@@ -2,6 +2,8 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
+krn_allocated_mem = nothing
+
 function load_imfilter_img_to_cpu(img, krnsize)
   img
 end
@@ -20,19 +22,18 @@ function load_imfilter_img_to_gpu(img, krnsize)
   fftimg
 end
 
-function load_imfilter_krn_to_gpu(krn, imgsize)
+
+function load_imfilter_krn_to_gpu(krn, imgsize, krn_allocated_mem)
   N = ndims(krn)
   T = eltype(krn)
 
-  # pad krn to common size with img
-  padkrn = padarray(krn, Fill(zero(T), ntuple(i->0, N), imgsize .- 1))
-  fftkrn = padkrn |> CuArray |> CUFFT.fft
-  fftkrn
+  copyto!(krn_allocated_mem, krn)
+  krn_allocated_mem
 end
 
-function imfilter_gpu(fftimg, krn, imgsize)
+function imfilter_gpu(fftimg, krn, imgsize, krn_allocated_mem)
   # load krn to gpu
-  fftkrn = load_imfilter_krn_to_gpu(krn, imgsize)
+  fftkrn = load_imfilter_krn_to_gpu(krn, imgsize, krn_allocated_mem)
 
   # perform ifft(fft(img) .* conj.(fft(krn)))
   result = (fftimg .* conj.(fftkrn)) |> CUFFT.ifft
