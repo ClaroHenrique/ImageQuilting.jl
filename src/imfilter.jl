@@ -7,6 +7,9 @@ function imfilter_cpu(img, krn)
 end
 
 function imfilter_gpu(img, krn)
+  img = img |> collect |> Array
+  krn = krn |> collect |> Array
+
   # retrieve basic info
   N = ndims(img)
   T = eltype(img)
@@ -16,12 +19,19 @@ function imfilter_gpu(img, krn)
   padkrn = padarray(krn, Fill(zero(T), ntuple(i->0, N), padsize))
 
   # perform ifft(fft(img) .* conj.(fft(krn)))
-  fftimg = padimg |> CuArray |> CUFFT.fft
+  fftimg = img |> CuArray |> CUFFT.fft
   fftkrn = padkrn |> CuArray |> CUFFT.fft
   result = (fftimg .* conj.(fftkrn)) |> CUFFT.ifft
+  result_cpu = imfilter_cpu(img, krn) |> collect
 
   # recover result
-  result |> Array
+  finalsize = size(img) .- (size(krn) .- 1)
+  result = real.(result[CartesianIndices(finalsize)]) |> Array
+  println(size(result), size(result_cpu), size(padkrn))
+  println("testeeeeeeeeeeeeeeeeeeeeeeee!!!!!! - - - !!!!!!")
+  println(all(result .≈ result_cpu))
+
+  result
 end
 
 const imfilter_kernel = CUDA.functional() ? imfilter_gpu : imfilter_cpu
