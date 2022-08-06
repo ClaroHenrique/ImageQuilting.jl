@@ -2,10 +2,10 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
-function fastdistance(img, kern; weights=fill(1.0, size(kern)))
+function fastdistance(img, kern; img²=img.^2, weights=fill(1.0, size(kern)))
   wkern = weights.*kern
 
-  A² = imfilter_kernel(img.^2, weights)
+  A² = imfilter_kernel(img², weights)
   AB = imfilter_kernel(img, wkern)
   B² = sum(wkern .* kern)
 
@@ -54,26 +54,36 @@ function activation(hard, tile)
   buff
 end
 
+function loadimagetokernel(img)
+  if CUDA.functional()
+    img |> CuArray
+  else
+    img
+  end
+end
+
 function imagepreproc(trainimg, soft, geoconfig)
   padsize = geoconfig.padsize
-
-  TI = Float64.(trainimg)
+  TI = Float64.(trainimg) |> loadimagetokernel
+  TI² = TI.^2
+  N = ndims(TI)
   replace!(TI, NaN => 0.)
 
   SOFT = map(soft) do (aux, auxTI)
-    prepend = ntuple(i->0, ndims(TI))
+    prepend = ntuple(i->0, N)
     append  = padsize .- min.(padsize, size(aux))
     padding = Pad(:symmetric, prepend, append)
 
-    AUX   = Float64.(padarray(aux, padding))
-    AUXTI = Float64.(auxTI)
+    AUX   = Float64.(padarray(aux, padding)) |> loadimagetokernel
+    AUXTI = Float64.(auxTI) |> loadimagetokernel
+
     replace!(AUX, NaN => 0.)
     replace!(AUXTI, NaN => 0.)
 
     AUX, AUXTI
   end
 
-  TI, SOFT
+  TI, TI², SOFT
 end
 
 function finddisabled(trainimg, geoconfig)
