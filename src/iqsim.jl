@@ -108,7 +108,7 @@ function iqsim(trainimg::AbstractArray{T,N}, tilesize::Dims{N},
                TIsize=TIsize, simsize=simsize, padsize=padsize, distsize=distsize)
 
   # pad input images and knockout inactive voxels
-  TI, TI², SOFT = imagepreproc(trainimg, soft, geoconfig)
+  TI, SOFT = imagepreproc(trainimg, soft, geoconfig)
 
   # disable tiles in the training image if they contain inactive voxels
   disabled = finddisabled(trainimg, geoconfig)
@@ -139,6 +139,10 @@ function iqsim(trainimg::AbstractArray{T,N}, tilesize::Dims{N},
     harddev  = Array{Float64}(undef, tilesize)
     harddist = Array{Float64}(undef, distsize)
   end
+
+  # optimized image to imfilter in current kernel (CPU or GPU)
+  imfilterTI = preprocimagetoimfilter_kernel(TI)
+  imfilterTI² = preprocimagetoimfilter_kernel(TI.^2)
 
   for real in 1:nreal
     # allocate memory for current simulation
@@ -183,7 +187,7 @@ function iqsim(trainimg::AbstractArray{T,N}, tilesize::Dims{N},
           ovlmask[CartesianIndices(oslice)] .= true
         end
       end
-      ovldist .= fastdistance(TI, simdev, img²=TI², weights=ovlmask)
+      ovldist .= fastdistance(imfilterTI, simdev, img²=imfilterTI², weights=ovlmask)
       ovldist[disabled] .= Inf
 
       # hard distance
@@ -192,7 +196,7 @@ function iqsim(trainimg::AbstractArray{T,N}, tilesize::Dims{N},
         indicator!(hardmask, hard, tile)
         if any(hardmask)
           event!(harddev, hard, tile)
-          harddist .= fastdistance(TI, harddev, img²=TI², weights=hardmask)
+          harddist .= fastdistance(imfilterTI, harddev, img²=imfilterTI², weights=hardmask)
           harddist[disabled] .= Inf
           hardtile = true
         end
