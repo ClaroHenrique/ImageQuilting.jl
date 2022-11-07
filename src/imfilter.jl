@@ -18,8 +18,17 @@ function opencl_functional()
   end
 end
 
+function cuda_functional()
+  try 
+    CUDA.functional()
+  catch 
+    false
+  end
+end
+
 function select_kernel_method()
-  if CUDA.functional()
+
+  if cuda_functional()
     CUDAMethod()
   elseif opencl_functional()
     OpenCLMethod()
@@ -30,6 +39,7 @@ end
 
 const kernel_method = select_kernel_method()
 
+const init_kernel() = init_kernel(kernel_method)
 const array_kernel(array) = array_kernel(kernel_method, array)
 const view_kernel(array, I) = view_kernel(kernel_method, array, I)
 const imfilter_kernel(img, krn) = imfilter_kernel(kernel_method, img, krn)

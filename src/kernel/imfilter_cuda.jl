@@ -2,6 +2,10 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
+function init_kernel(::CUDAMethod) 
+  @info "Running CUDA kernel"
+end
+
 const array_kernel(::CUDAMethod, array) = CuArray{Float32}(array)
 
 const view_kernel(::CUDAMethod, array, I) = Array(array[I])
@@ -11,9 +15,6 @@ function imfilter_kernel(::CUDAMethod, img, krn)
 end
 
 function imfilter_cuda(img, krn)
-  # retrieve basic info
-  N = ndims(img)
-  T = eltype(img)
 
   # pad kernel to common size with image
   padkrn = CUDA.zeros(Float32, size(img))

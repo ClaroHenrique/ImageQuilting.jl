@@ -2,6 +2,19 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
+function init_kernel(::OpenCLMethod) 
+  @info "Running OpenCL kernel"
+  init_opencl_context()
+end
+
+function init_opencl_context()
+  # retrieve global OpenCL info
+  device_, ctx_, queue_ = cl.create_compute_context()
+  global device = device_
+  global ctx = ctx_
+  global queue = queue_
+end
+
 const array_kernel(::OpenCLMethod, array) = array
 
 const view_kernel(::OpenCLMethod, array, I) = view(array, I)
@@ -12,10 +25,7 @@ end
 
 function imfilter_opencl(img, krn)
   # retrieve basic info
-  T = ComplexF64
-
-  # retrieve OpenCL info
-  device, ctx, queue = cl.create_compute_context()
+  T = ComplexF32
 
   # build OpenCL program kernels
   conj_kernel = build_conj_kernel(ctx)
@@ -57,24 +67,15 @@ function imfilter_opencl(img, krn)
   real_result = real.(result)
 
   finalsize = size(img) .- (size(krn) .- 1)
-  real_result[CartesianIndices(finalsize)]
-end
 
-function pad_opencl_img(img)
-  # OpenCL FFT expects products of powers of 2, 3, 5, 7, 11 or 13
-  radices = CLFFT.supported_radices()
-  newsize = map(dim -> nextprod(radices, dim), size(img))
-  
-  padimg = zeros(eltype(img), newsize)
-  padimg[CartesianIndices(img)] = img
-  padimg
+  real_result[CartesianIndices(finalsize)]
 end
 
 function build_mult_kernel(ctx)
   mult_kernel = "
-  __kernel void mult(__global const double2 *a,
-                      __global const double2 *b,
-                      __global double2 *c)
+  __kernel void mult(__global const float2 *a,
+                      __global const float2 *b,
+                      __global float2 *c)
   {
     int gid = get_global_id(0);
     c[gid].x = a[gid].x*b[gid].x - a[gid].y*b[gid].y;
@@ -87,7 +88,7 @@ end
 
 function build_conj_kernel(ctx)
   conj_kernel = "
-  __kernel void conj(__global double2 *a)
+  __kernel void conj(__global float2 *a)
   {
     int gid = get_global_id(0);
     a[gid].y = -a[gid].y;
@@ -95,4 +96,14 @@ function build_conj_kernel(ctx)
   "
   prog = cl.Program(ctx, source=conj_kernel) |> cl.build!
   cl.Kernel(prog, "conj")
+end
+
+function pad_opencl_img(img)
+  # OpenCL FFT expects products of powers of 2, 3, 5, 7, 11 or 13
+  radices = CLFFT.supported_radices()
+  newsize = map(dim -> nextprod(radices, dim), size(img))
+  
+  padimg = zeros(eltype(img), newsize)
+  padimg[CartesianIndices(img)] = img
+  padimg
 end

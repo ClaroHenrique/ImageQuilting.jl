@@ -2,6 +2,10 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
+function init_kernel(::CPUMethod) 
+  @info "Running default kernel"
+end
+
 const array_kernel(::CPUMethod, array) = array
 
 const view_kernel(::CPUMethod, array, I) = view(array, I)
