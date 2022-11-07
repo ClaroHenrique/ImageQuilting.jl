@@ -18,6 +18,8 @@ using FFTW: set_num_threads
 using CpuId: cpucores
 using RecipesBase
 using CUDA
+using OpenCL
+using CLFFT
 
 using Base: @nexprs, @nloops, @nref
 using SparseArrays: spzeros
